@@ -384,7 +384,7 @@ sensor:
             //Set controller control mode to 'outlet' and set hysteresis to the setting you have on the controller (recommend 4)
             const static int hysteresis = 4;
             //Set to value that anti-pendel script will track (outlet/inlet) (recommend inlet)
-            const float tracking_value = id(water_temp_retour).state;
+            const float tracking_value = id(water_temp_aanvoer).state;
             //bool to indicate that system is in overshoot mode
             static bool overshooting = false;
             //maximum allowable overshoot
