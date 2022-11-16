@@ -272,6 +272,13 @@ output:
     
  
 binary_sensor:
+  - platform: modbus_controller
+    modbus_controller_id: lg
+    name: "Pump Running"
+    id: pump_running
+    register_type: discrete_input
+    skip_updates: 1
+    address: 1
     on_press:
       # Reset switch_off_requested
       - globals.set:
@@ -282,13 +289,6 @@ binary_sensor:
     on_release:
       - script.execute: anti_pendel_off
       - script.stop: anti_pendel_on
-  - platform: modbus_controller
-    modbus_controller_id: lg
-    name: "Pump Running"
-    id: pump_running
-    register_type: discrete_input
-    skip_updates: 1
-    address: 1
   - platform: modbus_controller
     modbus_controller_id: lg
     name: "Compressor Running"
