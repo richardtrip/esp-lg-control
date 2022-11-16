@@ -12,13 +12,6 @@ esphome:
           id(run_start) = false;
           id(minimum_run_time_passed) = false;
           id(switch_off_requested) = false;
-          id(relay1).turn_off();
-          if (id(thermostat_signal).state) {
-            id(relay2).turn_on();
-            id(relay1).turn_on();
-          } else {
-            id(relay2).turn_off();
-          }
           
 packages:
   config_values: !include config/config.yaml
@@ -84,7 +77,7 @@ number:
     max_value: 0
     step: 1
     restore_value: yes
-    initial_value: -15
+    initial_value: -10
     unit_of_measurement: "°C"
     optimistic: true
     set_action:
@@ -126,7 +119,7 @@ number:
     max_value: 20
     step: 1
     restore_value: yes
-    initial_value: 9
+    initial_value: 18
     unit_of_measurement: "°C"
     optimistic: true
     set_action:
@@ -170,41 +163,10 @@ number:
     max_value: 60
     step: 1
     restore_value: yes
-    initial_value: 15
+    initial_value: 1
     unit_of_measurement: "min"
     optimistic: true
 switch:
-  - platform: gpio
-    name: "WP External Pump"
-    pin: 18
-    id: relay1
-    restore_mode: RESTORE_DEFAULT_OFF
-  - platform: gpio
-    name: "WP Heat"
-    pin: 19
-    id: relay2
-    restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_off:
-      then:
-        - lambda: |-
-            //Update working mode
-            id(working_mode) = 0;
-            id(minimum_run_time_script).stop();
-            id(anti_pendel_off).stop();
-            id(external_pump_script).execute();
-    on_turn_on:
-      then:
-        - lambda: |-
-            //Turn on external pump
-            id(relay1).turn_on();
-            //stop the script that stops the pump after x minutes
-            id(external_pump_script).stop();
-            //Update working mode
-            id(working_mode) = 2;
-            id(run_start) = true;
-            id(minimum_run_time_passed) = false;
-            id(switch_off_requested) = false;
-            id(minimum_run_time_script).execute();
   - platform: output
     name: "Silent Mode"
     id: silent_mode_switch
@@ -226,7 +188,6 @@ script:
           //If heating active and compressor is not running, switch off instantly
           if(!id(compressor_running).state && id(working_mode) == 2){
             ESP_LOGD("thermostat-delay", "Compressor not running. Instant off.");
-            id(relay2).turn_off();
           }else {
             ESP_LOGD("thermostat-delay", "anti_pendel_off called. starting delay timer. minimum_run_time_passed: %d",id(minimum_run_time_passed));
           }
@@ -235,7 +196,6 @@ script:
           //If minimum run time passed switch off. Otherwise flag switch off requested (will be picked up by minimum_run_time_script)
           ESP_LOGD("thermostat-delay", "anti_pendel_off delay passed. minimum_run_time_passed: %d",id(minimum_run_time_passed));
           if(id(minimum_run_time_passed)||(!id(compressor_running).state && id(working_mode) == 2)){
-            id(relay2).turn_off();
           } else {
             id(switch_off_requested) = true;
           }
@@ -248,7 +208,6 @@ script:
       - lambda: |-
           ESP_LOGD("thermostat-delay", "anti_pendel_on delay passed starting HP.");
           //Turn on HP
-          id(relay2).turn_on();
   - id: minimum_run_time_script
     mode: restart
     then:
@@ -262,7 +221,6 @@ script:
           //Check if switch off was already requested
           if(id(switch_off_requested)){
             //Switch off
-            id(relay2).turn_off();
             id(anti_pendel_off).stop();
           }
   - id: external_pump_script
@@ -271,10 +229,6 @@ script:
       - delay: !lambda "return id(external_pump_runover).state*60*1000;"
       - lambda: |-
           //switch off pump after delay time
-          id(relay1).turn_off();
-
-dallas:
-  - pin: 32
 
 modbus:
   id: modbus_lg
@@ -282,8 +236,8 @@ modbus:
   send_wait_time: 200ms
   
 uart:
-  tx_pin: GPIO26
-  rx_pin: GPIO25
+  tx_pin: GPIO17
+  rx_pin: GPIO16
   baud_rate: 9600
   id: uart_modbus
   parity: none
@@ -318,16 +272,6 @@ output:
     
  
 binary_sensor:
-  - platform: gpio # Thermostat input signal is connected to this input pin
-    pin:
-      number: GPIO27
-      mode:
-        input: true
-        pullup: false
-    name: "WP Nest Signal"
-    id: thermostat_signal
-    filters:
-      - delayed_on: 500ms # Debounce
     on_press:
       # Reset switch_off_requested
       - globals.set:
@@ -379,27 +323,6 @@ binary_sensor:
             if(id(silent_mode).state != id(silent_mode_switch).state) id(silent_mode_switch).publish_state(id(silent_mode).state);
     
 sensor:
-  - platform: dallas
-    address: 0x4a0122113a9bd528
-    name: "WPB Bottom Temperature"
-  - platform: dallas
-    address: 0xb9012211506ebf28
-    name: "WPB Top Temperature"
-  - platform: dallas
-    address: 0xe101221102a46b28
-    name: "Buffer Top Temperature"
-  - platform: dallas
-    address: 0xd7000801c04e3210
-    name: "Buffer Bottom Temperature"
-  - platform: dallas
-    address: 0xd10122112fc5ee28
-    name: "Inlet Junction Temperature"
-  - platform: dallas
-    address: 0x2403069794065c28
-    name: "Outlet Junction Temperature"
-  - platform: dallas
-    address: 0xbb03059497154628
-    name: "SWW Outlet Temperature"
   - platform: modbus_controller
     modbus_controller_id: lg
     name: "Bedrijfsmodus"
@@ -653,7 +576,7 @@ sensor:
       - multiply: 0.1
   - platform: modbus_controller
     modbus_controller_id: lg
-    name: "Garagetemperatuur"
+    name: "Binnen temperatuur"
     id: binnen_temp
     register_type: read
     address: 7
