@@ -296,6 +296,24 @@ binary_sensor:
     register_type: discrete_input
     skip_updates: 1
     address: 3
+    on_release:
+      then:
+        - lambda: |-
+            //Update working mode
+            id(working_mode) = 0;
+            id(anti_pendel_off).stop();
+            id(external_pump_script).execute();
+    on_press:
+      then:
+        - lambda: |-
+            //Turn on external pump
+            //stop the script that stops the pump after x minutes
+            //Update working mode
+            id(working_mode) = 2;
+            id(run_start) = true;
+            id(minimum_run_time_passed) = false;
+            id(switch_off_requested) = false;
+            id(minimum_run_time_script).execute();
   - platform: modbus_controller
     modbus_controller_id: lg
     name: "Defrosting"
